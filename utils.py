@@ -72,6 +72,7 @@ class SeamImage:
             Use NumpyPy vectorized matrix multiplication for high performance.
             To prevent outlier values in the boundaries, we recommend to pad them with 0.5
         """
+        print(np_img.shape)
         raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
 
     # @NI_decor
