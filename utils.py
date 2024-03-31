@@ -72,8 +72,12 @@ class SeamImage:
             Use NumpyPy vectorized matrix multiplication for high performance.
             To prevent outlier values in the boundaries, we recommend to pad them with 0.5
         """
-        print(np_img.shape)
-        raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
+        np_img = np_img.astype(np.float32)
+        padded_img = np.pad(np_img, ((1, 1), (1, 1), (0, 0)), 'constant', constant_values=0.5)
+        grayscale_img_padded = np.dot(padded_img[..., :3], self.gs_weights)
+        grayscale_img = grayscale_img_padded[1:-1, 1:-1]
+        return grayscale_img
+        # raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
 
     # @NI_decor
     def calc_gradient_magnitude(self):
@@ -87,7 +91,15 @@ class SeamImage:
             - keep in mind that values must be in range [0,1]
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
         """
-        raise NotImplementedError("TODO: Implement SeamImage.calc_gradient_magnitude")
+        np_sample = self.resized_gs.squeeze()
+
+        horDiff = np.diff(np.pad(np_sample, ((0, 0), (0, 1)), 'constant', constant_values=0.5), axis=1)
+        verDiff = np.diff(np.pad(np_sample, ((0, 1), (0, 0)), 'constant', constant_values=0.5), axis=0)
+        np_sample = np.sqrt(np.square(horDiff) + np.square(verDiff))
+        np_sample[np_sample > 1] = 1
+        return np_sample
+
+        #raise NotImplementedError("TODO: Implement SeamImage.calc_gradient_magnitude")
         
     def calc_M(self):
         pass
@@ -148,7 +160,17 @@ class VerticalSeamImage(SeamImage):
             As taught, the energy is calculated from top to bottom.
             You might find the function 'np.roll' useful.
         """
-        raise NotImplementedError("TODO: Implement SeamImage.calc_M")
+        M = np.zeros(self.E.shape, dtype=np.float32)
+        M[0,:] = self.E[0,:]
+        for i in range(1, self.E.shape[0]):
+            L_roll = np.roll(M[i-1, :], 1)
+            R_roll = np.roll(M[i-1, :], -1)
+            L_roll[0] = np.inf
+            R_roll[-1] = np.inf
+            M[i,:] = self.E[i,:] + np.minimum(np.minimum(M[i-1, :], L_roll), R_roll)
+
+        return M
+        #raise NotImplementedError("TODO: Implement SeamImage.calc_M")
 
     # @NI_decor
     def seams_removal(self, num_remove: int):
