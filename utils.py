@@ -197,7 +197,26 @@ class VerticalSeamImage(SeamImage):
             - removing seams couple of times (call the function more than once)
             - visualize the original image with removed seams marked (for comparison)
         """
-        raise NotImplementedError("TODO: Implement SeamImage.seams_removal")
+        for _ in range(num_remove):
+            self.E = self.calc_gradient_magnitude()
+            self.M = self.calc_M()
+            self.remove_seam()
+
+    def search_seam(self):
+        M = self.M
+        h, w = M.shape
+        mainSeam = np.zeros(h, dtype=np.float32)
+        mainSeam[h - 1] = np.argmin(M[h - 1, :])
+        for i in range(h - 2, -1, -1):
+            j = mainSeam[i + 1]
+            if j == 0:
+                mainSeam[i] = np.argmin(M[i, :2])
+            elif j == h-1:
+                mainSeam[i] = j -1 + np.argmin(M[i, :-2])
+            else:
+                mainSeam[i] = j + np.argmin(M[i, j - 1:j + 2]) - 1
+        return mainSeam
+    #raise NotImplementedError("TODO: Implement SeamImage.seams_removal")
 
     def paint_seams(self):
         for s in self.seam_history:
@@ -245,6 +264,19 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
         In order to apply the removal, you might want to extend the seam mask to support 3 channels (rgb) using: 3d_mak = np.stack([1d_mask] * 3, axis=2), and then use it to create a resized version.
         """
+        mainSeam = self.search_seam()
+        mask = np.zeros(self.resized_rgb.shape, dtype=bool)
+        for i in range(len(mainSeam)):
+            mask[i,mainSeam[i]] = True
+
+        mask_3d = np.stack([mask] * 3, axis=2)
+        self.resized_rgb = self.resized_rgb[mask_3d].reshape(self.resized_rgb.shape[0], self.resized_rgb.shape[1] -1 , 3)
+        self.resized_gs = self.resized_gs[mask[:,:,0]].reshape(self.resized_gs.shape[0], self.resized_gs.shape[1] - 1,1)
+        self.E = self.calc_gradient_magnitude()
+        self.M = self.calc_M()
+
+
+
         raise NotImplementedError("TODO: Implement SeamImage.remove_seam")
 
     # @NI_decor
@@ -299,7 +331,7 @@ class VerticalSeamImage(SeamImage):
             np.ndarray is a rederence type. changing it here may affected outsde.
         """
         raise NotImplementedError("TODO: Implement SeamImage.calc_bt_mat")
-        h, w = M.shape
+
 
 
 class SCWithObjRemoval(VerticalSeamImage):
