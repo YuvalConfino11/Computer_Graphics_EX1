@@ -117,18 +117,13 @@ class SeamImage:
         pass
 
     def rotate_mats(self, clockwise):
-        if clockwise:
-            self.resized_rgb = np.rot90(self.resized_rgb, k=3)
-            self.resized_gs = np.rot90(self.resized_gs, k=3)
-            self.E = np.rot90(self.E, k=3)
-            self.M = np.rot90(self.M, k=3)
-            self.idx_map_v, self.idx_map_h = np.rot90(self.idx_map_v, k=3), np.rot90(self.idx_map_h, k=3)
-        else:
-            self.resized_rgb = np.rot90(self.resized_rgb)
-            self.resized_gs = np.rot90(self.resized_gs)
-            self.E = np.rot90(self.E)
-            self.M = np.rot90(self.M)
-            self.idx_map_v, self.idx_map_h = np.rot90(self.idx_map_v), np.rot90(self.idx_map_h)
+        self.resized_rgb = np.rot90(self.resized_rgb, k=3 if clockwise else 1)
+        self.resized_gs = np.rot90(self.resized_gs, k=3 if clockwise else 1)
+        if self.E.ndim == 2:
+            self.E = np.rot90(self.E, k=3 if clockwise else 1)
+        if self.M.ndim == 2:
+            self.M = np.rot90(self.M, k=3 if clockwise else 1)
+        self.idx_map_v, self.idx_map_h = np.rot90(self.idx_map_v, k=3 if clockwise else 1), np.rot90(self.idx_map_h, k=3 if clockwise else 1)
 
     def init_mats(self):
         pass
@@ -218,10 +213,18 @@ class VerticalSeamImage(SeamImage):
             - visualize the original image with removed seams marked (for comparison)
         """
         for _ in range(num_remove):
+            num_remove = min(num_remove, self.resized_rgb.shape[1] - 1)
             if self.resized_rgb.shape[1] <= 1 or self.resized_rgb.shape[0] <= 1:
                 break
+
             self.E = self.calc_gradient_magnitude()
+            if self.E.size == 0:
+                break 
+
             self.M = self.calc_M()
+            if self.M.size == 0:
+                break
+            
             print(f"M shape before removing seam: {self.M.shape}")
             self.remove_seam()
     
@@ -326,6 +329,10 @@ class VerticalSeamImage(SeamImage):
         # Recalculate the energy and cost matrices
         self.E = self.calc_gradient_magnitude()
         self.M = self.calc_M()
+        print(f"Resized rgb shape: {self.resized_rgb.shape}")  # Debugging statement
+        print(f"Resized gs shape: {self.resized_gs.shape}")    # Debugging statement
+        print(f"E shape after resizing: {self.E.shape}")       # Debugging statement
+        print(f"M shape after resizing: {self.M.shape}")
 
         # mainSeam = self.search_seam()
         # mask = np.zeros(self.resized_rgb.shape, dtype=bool)
