@@ -76,7 +76,7 @@ class SeamImage:
         padded_img = np.pad(np_img, ((1, 1), (1, 1), (0, 0)), 'constant', constant_values=0.5)
         grayscale_img_padded = np.dot(padded_img[..., :3], self.gs_weights)
         grayscale_img = grayscale_img_padded[1:-1, 1:-1]
-        return grayscale_img
+        return grayscale_img.squeeze()
         # raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
 
     # @NI_decor
@@ -117,13 +117,15 @@ class SeamImage:
         pass
 
     def rotate_mats(self, clockwise):
-        self.resized_rgb = np.rot90(self.resized_rgb, k=3 if clockwise else 1)
-        self.resized_gs = np.rot90(self.resized_gs, k=3 if clockwise else 1)
-        if self.E.ndim == 2:
-            self.E = np.rot90(self.E, k=3 if clockwise else 1)
-        if self.M.ndim == 2:
-            self.M = np.rot90(self.M, k=3 if clockwise else 1)
-        self.idx_map_v, self.idx_map_h = np.rot90(self.idx_map_v, k=3 if clockwise else 1), np.rot90(self.idx_map_h, k=3 if clockwise else 1)
+        if clockwise:
+            self.resized_rgb = np.rot90(self.resized_rgb, k=3)
+            self.resized_gs = np.rot90(self.resized_gs, k=3)
+            self.idx_map_v, self.idx_map_h = np.rot90(self.idx_map_v, k=3), np.rot90(self.idx_map_h, k=3)
+        else:
+            self.resized_rgb = np.rot90(self.resized_rgb)
+            self.resized_gs = np.rot90(self.resized_gs)
+            self.idx_map_v, self.idx_map_h = np.rot90(self.idx_map_v), np.rot90(self.idx_map_h)
+        self.h, self.w = self.resized_gs.shape
 
     def init_mats(self):
         pass
@@ -213,20 +215,14 @@ class VerticalSeamImage(SeamImage):
             - visualize the original image with removed seams marked (for comparison)
         """
         for _ in range(num_remove):
-            num_remove = min(num_remove, self.resized_rgb.shape[1] - 1)
-            if self.resized_rgb.shape[1] <= 1 or self.resized_rgb.shape[0] <= 1:
-                break
-
-            self.E = self.calc_gradient_magnitude()
-            if self.E.size == 0:
-                break 
-
-            self.M = self.calc_M()
-            if self.M.size == 0:
-                break
-            
+            self.init_mats()
+           # num_remove = min(num_remove, self.resized_rgb.shape[1] - 1)
+           #  if self.resized_rgb.shape[1] <= 1 or self.resized_rgb.shape[0] <= 1:
+           #      break
             print(f"M shape before removing seam: {self.M.shape}")
             self.remove_seam()
+            self.paint_seams()
+            self.seam_history= []
     
     def search_seam(self):
         M = self.M
@@ -309,6 +305,9 @@ class VerticalSeamImage(SeamImage):
         return seam[::-1]
         # raise NotImplementedError("TODO: Implement SeamImage.backtrack_seam_b")
 
+    def update_ref_mat(self):
+        self.idx_map_h = self.idx_map_h[self.mask].reshape(self.h, self.w - 1)
+        self.idx_map_v = self.idx_map_v[self.mask].reshape(self.h, self.w - 1)
     # @NI_decor
     def remove_seam(self):
         """ Removes a seam from self.rgb (you may create a resized version, like self.resized_rgb)
@@ -318,17 +317,18 @@ class VerticalSeamImage(SeamImage):
         """
 
         mainSeam = self.search_seam()
+        self.seam_history.append(mainSeam)
+        self.mask = np.ones_like(self.M, dtype=bool)
         for i in range(len(mainSeam)):
-            self.resized_rgb[i, mainSeam[i], :] = [0, 0, 0]  # Set the seam pixels to black (or another color)
-            self.resized_gs[i, mainSeam[i], 0] = 0  # Set the seam pixels in the grayscale image to 0
+            self.mask[i,mainSeam[i]] = False
+
+        mask_3d = np.stack([self.mask] * 3, axis=2)
+        self.resized_rgb = self.resized_rgb[mask_3d].reshape(self.h, self.w -1 , 3)
+        self.resized_gs = self.rgb_to_grayscale(self.resized_rgb)
         
-        # Remove the seam by deleting the seam pixels
-        self.resized_rgb = np.delete(self.resized_rgb, mainSeam, axis=1)
-        self.resized_gs = np.delete(self.resized_gs, mainSeam, axis=1)
-        
+        self.update_ref_mat()
+        self.w =-1
         # Recalculate the energy and cost matrices
-        self.E = self.calc_gradient_magnitude()
-        self.M = self.calc_M()
         print(f"Resized rgb shape: {self.resized_rgb.shape}")  # Debugging statement
         print(f"Resized gs shape: {self.resized_gs.shape}")    # Debugging statement
         print(f"E shape after resizing: {self.E.shape}")       # Debugging statement
@@ -339,9 +339,7 @@ class VerticalSeamImage(SeamImage):
         # for i in range(len(mainSeam)):
         #     mask[i,mainSeam[i]] = True
 
-        # mask_3d = np.stack([mask] * 3, axis=2)
-        # self.resized_rgb = self.resized_rgb[mask_3d].reshape(self.resized_rgb.shape[0], self.resized_rgb.shape[1] -1 , 3)
-        # self.resized_gs = self.resized_gs[mask[:,:,0]].reshape(self.resized_gs.shape[0], self.resized_gs.shape[1] - 1,1)
+
         # self.E = self.calc_gradient_magnitude()
         # self.M = self.calc_M()
 
