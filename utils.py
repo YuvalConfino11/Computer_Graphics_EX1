@@ -399,7 +399,6 @@ class VerticalSeamImage(SeamImage):
         raise NotImplementedError("TODO: Implement SeamImage.calc_bt_mat")
 
 
-
 class SCWithObjRemoval(VerticalSeamImage):
     def __init__(self, active_masks=['Gemma'], *args, **kwargs):
         import glob
@@ -426,8 +425,9 @@ class SCWithObjRemoval(VerticalSeamImage):
             Guidelines & hints:
                 - for every active mask we need make it binary: {0,1}
         """
-        raise NotImplementedError("TODO: Implement SeamImage.preprocess_masks")
-        print('Active masks:', self.active_masks)
+        for k in self.active_masks:
+            self.obj_masks[k] = (self.obj_masks[k] > 0.5).astype(np.float32)
+        # raise NotImplementedError("TODO: Implement SeamImage.preprocess_masks")
 
     # @NI_decor
     def apply_mask(self):
@@ -437,7 +437,13 @@ class SCWithObjRemoval(VerticalSeamImage):
                 - you need to apply the masks on other matrices!
                 - think how to force seams to pass through a mask's object..
         """
-        raise NotImplementedError("TODO: Implement SeamImage.apply_mask")
+
+        for k in self.active_masks:
+            mask = self.obj_masks[k]
+            # Set the energy of the pixels in the mask to a very high value
+            # to force the seams to pass through these pixels.
+            self.E += mask * 1e6
+            # raise NotImplementedError("TODO: Implement SeamImage.apply_mask")
 
 
     def init_mats(self):
