@@ -318,7 +318,7 @@ class VerticalSeamImage(SeamImage):
 
         mainSeam = self.search_seam()
         self.seam_history.append(mainSeam)
-        self.mask = np.ones_like(self.M, dtype=bool)
+        self.mask = np.zeros_like(self.M, dtype=bool)
         for i in range(len(mainSeam)):
             self.mask[i,mainSeam[i]] = False
 
@@ -426,7 +426,7 @@ class SCWithObjRemoval(VerticalSeamImage):
                 - for every active mask we need make it binary: {0,1}
         """
         for k in self.active_masks:
-            self.obj_masks[k] = (self.obj_masks[k] > 0.5).astype(np.float32)
+            self.obj_masks[k] = (self.obj_masks[k] > 0.5).astype(np.int32)
         # raise NotImplementedError("TODO: Implement SeamImage.preprocess_masks")
 
     # @NI_decor
@@ -439,12 +439,30 @@ class SCWithObjRemoval(VerticalSeamImage):
         """
 
         for k in self.active_masks:
-            mask = self.obj_masks[k]
-            # Set the energy of the pixels in the mask to a very high value
-            # to force the seams to pass through these pixels.
-            self.E += mask * 1e6
-            # raise NotImplementedError("TODO: Implement SeamImage.apply_mask")
+            # resized_mask = self.resize_mask(self.obj_masks[k], self.E.shape[:2])
+            # binary_mask = (resized_mask > 0.5).astype(int)
+            # self.E -= binary_mask * 1e6
+            # self.E = np.maximum(self.E, 0)
+            self.E = np.where(self.obj_masks[k], 0, self.E + 10)
 
+    def resize_mask(self, mask, new_shape):
+        """Resizes a mask to the specified shape using bilinear interpolation."""
+        old_height, old_width = mask.shape
+        new_height, new_width = new_shape
+        resized_mask = np.zeros(new_shape, dtype=mask.dtype)
+
+        for i in range(new_height):
+            for j in range(new_width):
+                # Find the nearest pixel in the original mask
+                nearest_i = round(i * old_height / new_height)
+                nearest_j = round(j * old_width / new_width)
+                # Clamp the indices to be within the bounds of the original mask
+                nearest_i = min(nearest_i, old_height - 1)
+                nearest_j = min(nearest_j, old_width - 1)
+                # Assign the value of the nearest pixel to the resized mask
+                resized_mask[i, j] = mask[nearest_i, nearest_j]
+
+        return resized_mask
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
