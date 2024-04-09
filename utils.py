@@ -448,6 +448,7 @@ class SCWithObjRemoval(VerticalSeamImage):
             # self.E -= binary_mask * 1e6
             # self.E = np.maximum(self.E, 0)
             self.E = np.where(self.obj_masks[k], 0, self.E + 10)
+            # self.E = np.where(self.obj_masks[k], -np.inf, self.E + 10)
 
     def resize_mask(self, mask, new_shape):
         """Resizes a mask to the specified shape using bilinear interpolation."""
@@ -470,8 +471,8 @@ class SCWithObjRemoval(VerticalSeamImage):
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
+        self.apply_mask() 
         self.M = self.calc_M()
-        self.apply_mask() # -> added
         self.backtrack_mat = np.zeros_like(self.M, dtype=int)
         self.mask = np.ones_like(self.M, dtype=bool)
 
