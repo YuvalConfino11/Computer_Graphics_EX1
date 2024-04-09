@@ -173,7 +173,7 @@ class VerticalSeamImage(SeamImage):
             You might find the function 'np.roll' useful.
         """
         M = np.zeros(self.E.shape, dtype=np.float32)
-        print(f"Initialized M shape: {M.shape}") 
+        # print(f"Initialized M shape: {M.shape}") 
         if M.size == 0:  # Check if M is empty
             return M
     
@@ -185,7 +185,7 @@ class VerticalSeamImage(SeamImage):
             R_roll[-1] = np.inf
             M[i,:] = self.E[i,:] + np.minimum(np.minimum(M[i-1, :], L_roll), R_roll)
 
-        print(f"Final M shape: {M.shape}")
+        # print(f"Final M shape: {M.shape}")
         return M
         
         #raise NotImplementedError("TODO: Implement SeamImage.calc_M")
@@ -217,10 +217,10 @@ class VerticalSeamImage(SeamImage):
         """
         for _ in range(num_remove):
             self.init_mats()
-           # num_remove = min(num_remove, self.resized_rgb.shape[1] - 1)
-           #  if self.resized_rgb.shape[1] <= 1 or self.resized_rgb.shape[0] <= 1:
-           #      break
-            print(f"M shape before removing seam: {self.M.shape}")
+            # num_remove = min(num_remove, self.resized_rgb.shape[1] - 1)
+            #  if self.resized_rgb.shape[1] <= 1 or self.resized_rgb.shape[0] <= 1:
+            #      break
+            # print(f"M shape before removing seam: {self.M.shape}")
             self.remove_seam()
             self.paint_seams()
             self.seam_history= []
@@ -332,20 +332,6 @@ class VerticalSeamImage(SeamImage):
 
         self.update_ref_mat()
         self.w -= 1
-        # Recalculate the energy and cost matrices
-        print(f"Resized rgb shape: {self.resized_rgb.shape}")  # Debugging statement
-        print(f"Resized gs shape: {self.resized_gs.shape}")    # Debugging statement
-        print(f"E shape after resizing: {self.E.shape}")       # Debugging statement
-        print(f"M shape after resizing: {self.M.shape}")
-
-        # mainSeam = self.search_seam()
-        # mask = np.zeros(self.resized_rgb.shape, dtype=bool)
-        # for i in range(len(mainSeam)):
-        #     mask[i,mainSeam[i]] = True
-
-
-        # self.E = self.calc_gradient_magnitude()
-        # self.M = self.calc_M()
 
         # raise NotImplementedError("TODO: Implement SeamImage.remove_seam")
 
@@ -447,7 +433,7 @@ class SCWithObjRemoval(VerticalSeamImage):
             # binary_mask = (resized_mask > 0.5).astype(int)
             # self.E -= binary_mask * 1e6
             # self.E = np.maximum(self.E, 0)
-            self.E = np.where(self.obj_masks[k], 0, self.E + 10)
+            self.E = np.where(self.obj_masks[k], 0, self.E + 100)
             # self.E = np.where(self.obj_masks[k], -np.inf, self.E + 10)
 
     def resize_mask(self, mask, new_shape):
