@@ -498,7 +498,8 @@ def scale_to_shape(orig_shape: np.ndarray, scale_factors: list):
     Returns
         the new shape
     """
-    raise NotImplementedError("TODO: Implement scale_to_shape")
+    return np.round(orig_shape * np.array(scale_factors)).astype(int)
+    # raise NotImplementedError("TODO: Implement scale_to_shape")
 
 
 def resize_seam_carving(seam_img: SeamImage, shapes: np.ndarray):
@@ -511,7 +512,12 @@ def resize_seam_carving(seam_img: SeamImage, shapes: np.ndarray):
     Returns
         the resized rgb image
     """
-    raise NotImplementedError("TODO: Implement resize_seam_carving")
+    seam_img.reinit()
+    seam_img.seams_removal_vertical(np.abs(shapes[0][1] - shapes[1][1]))
+    seam_img.seams_removal_horizontal(np.abs(shapes[0][0] - shapes[1][0]))
+    
+    return seam_img.resized_rgb
+    # raise NotImplementedError("TODO: Implement resize_seam_carving")
 
 
 def bilinear(image, new_shape):
