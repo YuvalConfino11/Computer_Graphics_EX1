@@ -132,7 +132,8 @@ class SeamImage:
 
     def update_ref_mat(self):
         for i, s in enumerate(self.seam_history[-1]):
-            self.idx_map[i, s:] += 1
+            self.idx_map_v[i, s:] -= 1
+            self.idx_map_h[i, s:] -= 1
 
     def backtrack_seam(self):
         pass
@@ -253,9 +254,11 @@ class VerticalSeamImage(SeamImage):
     def paint_seams(self):
         for s in self.seam_history:
             for i, s_i in enumerate(s):
-                self.cumm_mask[self.idx_map_v[i,s_i], self.idx_map_h[i,s_i]] = False
+                if 0 <= s_i < self.w and 0 <= i < self.h:
+                    self.cumm_mask[self.idx_map_v[i, s_i], self.idx_map_h[i, s_i]] = False
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
-        self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
+        self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1, 0, 0])
+
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
@@ -318,16 +321,17 @@ class VerticalSeamImage(SeamImage):
 
         mainSeam = self.search_seam()
         self.seam_history.append(mainSeam)
-        self.mask = np.zeros_like(self.M, dtype=bool)
+        self.mask = np.ones_like(self.M, dtype=bool)
         for i in range(len(mainSeam)):
-            self.mask[i,mainSeam[i]] = False
+            self.mask[i, mainSeam[i]] = False
 
-        mask_3d = np.stack([self.mask] * 3, axis=2)
-        self.resized_rgb = self.resized_rgb[mask_3d].reshape(self.h, self.w -1 , 3)
+        new_mask_3d = np.repeat(self.mask[:, :, np.newaxis], 3, axis=2)
+
+        self.resized_rgb = self.resized_rgb[new_mask_3d].reshape(self.h, self.w - 1, 3)
         self.resized_gs = self.rgb_to_grayscale(self.resized_rgb)
-        
+
         self.update_ref_mat()
-        self.w =-1
+        self.w -= 1
         # Recalculate the energy and cost matrices
         print(f"Resized rgb shape: {self.resized_rgb.shape}")  # Debugging statement
         print(f"Resized gs shape: {self.resized_gs.shape}")    # Debugging statement
