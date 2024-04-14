@@ -172,20 +172,48 @@ class VerticalSeamImage(SeamImage):
             As taught, the energy is calculated from top to bottom.
             You might find the function 'np.roll' useful.
         """
-        M = np.zeros(self.E.shape, dtype=np.float32)
-        # print(f"Initialized M shape: {M.shape}") 
-        if M.size == 0:  # Check if M is empty
-            return M
+        # M = np.zeros(self.E.shape, dtype=np.float32)
+        # if M.size == 0:  # Check if M is empty
+        #     return M
     
-        M[0,:] = self.E[0,:]
-        for i in range(1, self.E.shape[0]):
-            L_roll = np.roll(M[i-1, :], 1)
-            R_roll = np.roll(M[i-1, :], -1)
-            L_roll[0] = np.inf
-            R_roll[-1] = np.inf
-            M[i,:] = self.E[i,:] + np.minimum(np.minimum(M[i-1, :], L_roll), R_roll)
+        # M[0,:] = self.E[0,:]
+        # for i in range(1, self.E.shape[0]):
+        #     L_roll = np.roll(M[i-1, :], 1)
+        #     R_roll = np.roll(M[i-1, :], -1)
+        #     L_roll[0] = np.inf
+        #     R_roll[-1] = np.inf
+        #     M[i,:] = self.E[i,:] + np.minimum(np.minimum(M[i-1, :], L_roll), R_roll)
 
-        # print(f"Final M shape: {M.shape}")
+        # return M
+
+        M = np.zeros(self.E.shape, dtype = np.float32)
+        gsm = np.pad(self.resized_gs, ((1, 1), (1, 1)), mode='constant', constant_values=0.5)
+
+        #calculating cv, cl, cr like we saw in class
+        left_shift = np.roll(gsm, -1, axis=1)
+        right_shift = np.roll(gsm, 1, axis=1)
+        down_shift = np.roll(gsm, 1, axis=0)
+        cv = np.abs(left_shift - right_shift)
+        cv = cv.squeeze()
+        cv = cv[1:-1, 1:-1] 
+        cl = np.abs(left_shift - right_shift) + np.abs(right_shift - down_shift)
+        cl = cl.squeeze() 
+        cl = cl[1:-1, 1:-1]
+        cr = np.abs(left_shift - right_shift) + np.abs(left_shift - down_shift)
+        cr = cr.squeeze() 
+        cr = cr[1:-1, 1:-1]
+
+        #Copying the first row of E
+        M[0,:] = self.E[0,:]
+
+        #filling the rest by Forwardlooking Cost formula
+        for i in range(1,M.shape[0]):
+            l_roll = np.roll(M[i-1,:], 1)
+            l_roll[0] = np.inf
+            r_roll = np.roll(M[i-1,:], -1)
+            r_roll[-1] = np.Inf
+            M[i,:] = self.E[i,:] + np.minimum(M[i-1,:] + cv[i] , np.minimum(l_roll + cl[i],r_roll + cr[i]))
+            
         return M
         
         #raise NotImplementedError("TODO: Implement SeamImage.calc_M")
@@ -217,10 +245,6 @@ class VerticalSeamImage(SeamImage):
         """
         for _ in range(num_remove):
             self.init_mats()
-            # num_remove = min(num_remove, self.resized_rgb.shape[1] - 1)
-            #  if self.resized_rgb.shape[1] <= 1 or self.resized_rgb.shape[0] <= 1:
-            #      break
-            # print(f"M shape before removing seam: {self.M.shape}")
             self.remove_seam()
             self.paint_seams()
             self.seam_history= []
@@ -240,15 +264,6 @@ class VerticalSeamImage(SeamImage):
                 mainSeam[i] = j + (np.argmin(M[i, j - 1:j + 2]) if M[i, j - 1:j + 2].size > 0 else 0) - 1
         return mainSeam
     
-        # for i in range(h - 2, -1, -1):
-        #     j = mainSeam[i + 1]
-        #     if j == 0:
-        #         mainSeam[i] = np.argmin(M[i, :2])
-        #     elif j == w-1:
-        #         mainSeam[i] = j -1 + np.argmin(M[i, :-2])
-        #     else:
-        #         mainSeam[i] = j + np.argmin(M[i, j - 1:j + 2]) - 1
-        # return mainSeam
     #raise NotImplementedError("TODO: Implement SeamImage.seams_removal")
 
     def paint_seams(self):
@@ -361,7 +376,10 @@ class VerticalSeamImage(SeamImage):
             You may find np.rot90 function useful
 
         """
-        raise NotImplementedError("TODO (Bonus): Implement SeamImage.seams_addition_horizontal")
+        self.rotate_mats(clockwise=True)
+        self.seams_addition_vertical(num_add)
+        self.rotate_mats(clockwise=False)
+        # raise NotImplementedError("TODO (Bonus): Implement SeamImage.seams_addition_horizontal")
 
     # @NI_decor
     def seams_addition_vertical(self, num_add):
@@ -370,8 +388,20 @@ class VerticalSeamImage(SeamImage):
         Parameters:
             num_add (int): number of vertical seam to be added
         """
+        self.seams_removal_vertical(num_add)
+        self.resized_rgb = np.zeros((self.rgb.shape[0], self.rgb.shape[1] + num_add, 3))
 
-        raise NotImplementedError("TODO (Bonus): Implement SeamImage.seams_addition_vertical")
+        for r in range(self.seams_rgb.shape[0]):
+            i = 0
+            for c in range(self.seams_rgb.shape[1]):
+                if c + i < self.resized_rgb.shape[1]:
+                    self.resized_rgb[r, c + i, :] = self.rgb[r, c, :]
+                if self.seams_rgb[r, c, 0] == 1 and self.seams_rgb[r, c, 1] == 0 and self.seams_rgb[r, c, 2] == 0:
+                    i += 1
+                    if c + i < self.resized_rgb.shape[1]:
+                        self.resized_rgb[r, c + i, :] = self.rgb[r, c, :]
+
+        # raise NotImplementedError("TODO (Bonus): Implement SeamImage.seams_addition_vertical")
 
     # @NI_decor
     @staticmethod
@@ -429,12 +459,7 @@ class SCWithObjRemoval(VerticalSeamImage):
         """
 
         for k in self.active_masks:
-            # resized_mask = self.resize_mask(self.obj_masks[k], self.E.shape[:2])
-            # binary_mask = (resized_mask > 0.5).astype(int)
-            # self.E -= binary_mask * 1e6
-            # self.E = np.maximum(self.E, 0)
             self.E = np.where(self.obj_masks[k], 0, self.E + 100)
-            # self.E = np.where(self.obj_masks[k], -np.inf, self.E + 10)
 
     def resize_mask(self, mask, new_shape):
         """Resizes a mask to the specified shape using bilinear interpolation."""
